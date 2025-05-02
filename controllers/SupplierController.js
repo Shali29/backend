@@ -1,5 +1,7 @@
 import db from '../config/db.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
+// or: const bcrypt = require('bcryptjs');
+
 import jwt from 'jsonwebtoken';
 
 // Helper function to generate JWT token
