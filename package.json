@@ -6,10 +6,7 @@
   "scripts": {
   "start": "node server.js",
   "postinstall": "npm rebuild bcrypt --build-from-source"
-}
-
-
-,
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
