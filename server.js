@@ -49,5 +49,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Server starting on http://localhost:${port}`);
+    console.log(`Server starting on https://backend-production-f1ac.up.railway.app/`);
 }); 
