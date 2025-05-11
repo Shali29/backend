@@ -204,13 +204,17 @@ export const createSupplier = async (req, res) => {
 
 export const updateSupplier = async (req, res) => {
   try {
-    const supplier = await getById(req.params.id);
-    if (!supplier) {
-      return res.status(404).json({ message: 'Supplier not found' });
+    const { id } = req.params; // Get the id from the URL
+    const supplierData = req.body; // Get the data to update from the body
+
+    // Call the update function
+    const result = await update(id, supplierData);
+
+    if (result.rowsAffected[0] > 0) { // Check if update affected any rows
+      res.status(200).json({ message: 'Supplier updated successfully' });
+    } else {
+      res.status(404).json({ message: 'Supplier not found' });
     }
-    
-    await update(req.params.id, req.body);
-    res.status(200).json({ message: 'Supplier updated successfully' });
   } catch (error) {
     console.error('Error updating supplier:', error);
     res.status(500).json({ message: 'Error updating supplier', error: error.message });

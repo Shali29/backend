@@ -22,7 +22,7 @@ router.get('/:id', getSupplierById);
 router.post('/create', createSupplier);
 
 // Update an existing supplier
-router.put('/update', updateSupplier);
+router.put('/update/:id', updateSupplier);
 
 // Delete a supplier
 router.delete('/delete/:id', deleteSupplier);
