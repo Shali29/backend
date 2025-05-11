@@ -16,21 +16,35 @@ const generateToken = (supplier) => {
 // Supplier Model Methods - These are now internal functions in the controller file
 const getAll = async () => {
   try {
-    const [results] = await db.query('SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email FROM Supplier');
-    return results;
+    await db.poolConnect;
+    const result = await db.pool.request().query(`
+      SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email FROM Supplier
+    `);
+    return result.recordset;
   } catch (error) {
     throw error;
   }
 };
 
+
 const getById = async (id) => {
   try {
-    const [results] = await db.query('SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email, AccountNumber, BankName, Branch FROM Supplier WHERE S_RegisterID = ?', [id]);
-    return results.length === 0 ? null : results[0];
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('id', db.sql.VarChar, id);
+
+    const result = await request.query(`
+      SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email, AccountNumber, BankName, Branch 
+      FROM Supplier 
+      WHERE S_RegisterID = @id
+    `);
+
+    return result.recordset.length === 0 ? null : result.recordset[0];
   } catch (error) {
     throw error;
   }
 };
+
 
 const create = async (supplierData) => {
   try {
@@ -69,57 +83,73 @@ const create = async (supplierData) => {
 
 const update = async (id, supplierData) => {
   try {
-    const query = `
+    await db.poolConnect;
+    const request = db.pool.request();
+
+    request.input('S_FullName', db.sql.NVarChar, supplierData.S_FullName);
+    request.input('S_Address', db.sql.NVarChar, supplierData.S_Address);
+    request.input('S_ContactNo', db.sql.VarChar, supplierData.S_ContactNo);
+    request.input('AccountNumber', db.sql.VarChar, supplierData.AccountNumber);
+    request.input('BankName', db.sql.VarChar, supplierData.BankName);
+    request.input('Branch', db.sql.VarChar, supplierData.Branch);
+    request.input('Email', db.sql.VarChar, supplierData.Email);
+    request.input('S_RegisterID', db.sql.VarChar, id);
+
+    const result = await request.query(`
       UPDATE Supplier SET 
-        S_FullName = ?, 
-        S_Address = ?, 
-        S_ContactNo = ?, 
-        AccountNumber = ?, 
-        BankName = ?, 
-        Branch = ?, 
-        Email = ? 
-      WHERE S_RegisterID = ?
-    `;
-    
-    const [result] = await db.query(
-      query,
-      [
-        supplierData.S_FullName,
-        supplierData.S_Address,
-        supplierData.S_ContactNo,
-        supplierData.AccountNumber,
-        supplierData.BankName,
-        supplierData.Branch,
-        supplierData.Email,
-        id
-      ]
-    );
-    
+        S_FullName = @S_FullName, 
+        S_Address = @S_Address, 
+        S_ContactNo = @S_ContactNo, 
+        AccountNumber = @AccountNumber, 
+        BankName = @BankName, 
+        Branch = @Branch, 
+        Email = @Email 
+      WHERE S_RegisterID = @S_RegisterID
+    `);
+
     return result;
   } catch (error) {
     throw error;
   }
 };
+
 
 const deleteSupplierById = async (id) => {
   try {
-    const [result] = await db.query('DELETE FROM Supplier WHERE S_RegisterID = ?', [id]);
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('id', db.sql.VarChar, id);
+
+    const result = await request.query(`
+      DELETE FROM Supplier WHERE S_RegisterID = @id
+    `);
+
     return result;
   } catch (error) {
     throw error;
   }
 };
 
+
 const authenticate = async (username, password) => {
   try {
-    const [results] = await db.query('SELECT S_RegisterID, Username, hash_Password FROM Supplier WHERE Username = ?', [username]);
-    if (results.length === 0) return null;
-    
-    const supplier = results[0];
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('username', db.sql.VarChar, username);
+
+    const result = await request.query(`
+      SELECT S_RegisterID, Username, hash_Password 
+      FROM Supplier 
+      WHERE Username = @username
+    `);
+
+    const records = result.recordset;
+    if (records.length === 0) return null;
+
+    const supplier = records[0];
     const match = await bcrypt.compare(password, supplier.hash_Password);
-    
+
     if (match) {
-      // Don't return the password hash
       delete supplier.hash_Password;
       return supplier;
     }
@@ -128,6 +158,7 @@ const authenticate = async (username, password) => {
     throw error;
   }
 };
+
 
 // Controller functions - These are exported and used by routes
 export const getAllSuppliers = async (req, res) => {
