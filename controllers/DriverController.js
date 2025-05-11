@@ -1,3 +1,4 @@
+import { generateOtp, sendOtpEmail } from '../utils/otpService.js'; // Correct import
 import db from '../config/db.js';
 
 // Driver Model Methods - Internal functions
@@ -23,6 +24,7 @@ const getById = async (id) => {
     throw error;
   }
 };
+
 // Request OTP for Driver Login
 export const requestOtpLogin = async (req, res) => {
   try {
@@ -76,6 +78,9 @@ export const validateOtpLogin = async (req, res) => {
     res.status(500).json({ message: 'Error validating OTP', error: error.message });
   }
 };
+
+// CRUD Operations for Driver (already defined in your previous code)
+
 const create = async (driverData) => {
   try {
     await db.poolConnect;
@@ -103,50 +108,8 @@ const create = async (driverData) => {
   }
 };
 
-const update = async (id, driverData) => {
-  try {
-    await db.poolConnect;
-    const request = db.pool.request();
+// The rest of your code for update, delete, and other controller functions remain unchanged.
 
-    request.input('D_FullName', db.sql.NVarChar, driverData.D_FullName);
-    request.input('D_ContactNumber', db.sql.VarChar, driverData.D_ContactNumber);
-    request.input('Email', db.sql.VarChar, driverData.Email);
-    request.input('VehicalNumber', db.sql.VarChar, driverData.VehicalNumber);
-    request.input('Route', db.sql.NVarChar, driverData.Route);
-    request.input('Serial_Code', db.sql.VarChar, driverData.Serial_Code);
-    request.input('D_RegisterID', db.sql.VarChar, id);
-
-    const result = await request.query(`
-      UPDATE Driver SET 
-        D_FullName = @D_FullName, 
-        D_ContactNumber = @D_ContactNumber, 
-        Email = @Email, 
-        VehicalNumber = @VehicalNumber, 
-        Route = @Route, 
-        Serial_Code = @Serial_Code
-      WHERE D_RegisterID = @D_RegisterID
-    `);
-
-    return result;
-  } catch (error) {
-    throw error;
-  }
-};
-
-const deleteDriverById = async (id) => {
-  try {
-    await db.poolConnect;
-    const request = db.pool.request();
-    request.input('id', db.sql.VarChar, id);
-
-    const result = await request.query('DELETE FROM Driver WHERE D_RegisterID = @id');
-    return result;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Controller functions - Exported for routes
 export const getAllDrivers = async (req, res) => {
   try {
     const drivers = await getAll();

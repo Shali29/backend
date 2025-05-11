@@ -5,8 +5,8 @@ import {
   createDriver,
   updateDriver,
   deleteDriver,
-  requestOtpLogin,     // Add this import
-  validateOtpLogin     // Add this import
+  requestOtpLogin,  // Added this import
+  validateOtpLogin  // Added this import
 } from '../controllers/DriverController.js';
 
 const router = express.Router();

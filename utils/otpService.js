@@ -1,3 +1,4 @@
+// utils/otpService.js
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
@@ -32,4 +33,4 @@ const sendOtpEmail = async (email, otp) => {
   }
 };
 
-export { generateOtp, sendOtpEmail };
+export { generateOtp, sendOtpEmail };  // Ensure both are exported correctly
