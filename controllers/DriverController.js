@@ -23,7 +23,59 @@ const getById = async (id) => {
     throw error;
   }
 };
+// Request OTP for Driver Login
+export const requestOtpLogin = async (req, res) => {
+  try {
+    const { D_RegisterID } = req.body; // Driver ID entered by the user
 
+    // Check if the driver exists in the database
+    const driver = await getById(D_RegisterID);
+    if (!driver) {
+      return res.status(404).json({ message: 'Driver not found' });
+    }
+
+    // Generate OTP
+    const otp = generateOtp();
+
+    // Store OTP on the driver object (consider using a more secure method like Redis or DB for production)
+    driver.otp = otp; // Storing OTP temporarily on the driver object (can be adjusted)
+
+    // Send OTP to driver's email
+    await sendOtpEmail(driver.Email, otp);
+
+    res.status(200).json({ message: 'OTP sent successfully to the driver\'s email' });
+  } catch (error) {
+    console.error('Error requesting OTP:', error);
+    res.status(500).json({ message: 'Error sending OTP', error: error.message });
+  }
+};
+
+// Validate OTP for Driver Login
+export const validateOtpLogin = async (req, res) => {
+  try {
+    const { D_RegisterID, otp } = req.body; // Driver ID and OTP entered by the driver
+
+    // Check if driver exists in the database
+    const driver = await getById(D_RegisterID);
+    if (!driver) {
+      return res.status(404).json({ message: 'Driver not found' });
+    }
+
+    // Validate OTP
+    if (driver.otp === otp) {
+      // OTP is valid, proceed with login (you can issue a token here if needed)
+      res.status(200).json({ message: 'Login successful' });
+
+      // Optionally, clear the OTP after use for security purposes
+      delete driver.otp;
+    } else {
+      res.status(400).json({ message: 'Invalid OTP' });
+    }
+  } catch (error) {
+    console.error('Error validating OTP:', error);
+    res.status(500).json({ message: 'Error validating OTP', error: error.message });
+  }
+};
 const create = async (driverData) => {
   try {
     await db.poolConnect;

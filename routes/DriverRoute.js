@@ -1,12 +1,12 @@
-// DriverRoute.js
-
 import express from 'express';
 import {
   getAllDrivers,
   getDriverById,
   createDriver,
   updateDriver,
-  deleteDriver
+  deleteDriver,
+  requestOtpLogin,     // Add this import
+  validateOtpLogin     // Add this import
 } from '../controllers/DriverController.js';
 
 const router = express.Router();
@@ -25,5 +25,11 @@ router.put('/updateDriver/:id', updateDriver);
 
 // DELETE driver
 router.delete('/deleteDriver/:id', deleteDriver);
+
+// POST Request OTP for driver login
+router.post('/requestOtpLogin', requestOtpLogin);  // Add this route
+
+// POST Validate OTP for driver login
+router.post('/validateOtpLogin', validateOtpLogin);  // Add this route
 
 export default router;
