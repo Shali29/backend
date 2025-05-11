@@ -1,11 +1,11 @@
 import db from '../config/db.js';
 
-
 // Driver Model Methods - Internal functions
 const getAll = async () => {
   try {
-    const [rows] = await db.query('SELECT * FROM Driver');
-    return rows;
+    await db.poolConnect; // Ensure pool is connected
+    const result = await db.pool.request().query('SELECT * FROM Driver');
+    return result.recordset; // Return the rows as a recordset
   } catch (error) {
     throw error;
   }
@@ -13,8 +13,12 @@ const getAll = async () => {
 
 const getById = async (id) => {
   try {
-    const [rows] = await db.query('SELECT * FROM Driver WHERE D_RegisterID = ?', [id]);
-    return rows.length > 0 ? rows[0] : null;
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('id', db.sql.VarChar, id);
+    
+    const result = await request.query('SELECT * FROM Driver WHERE D_RegisterID = @id');
+    return result.recordset.length > 0 ? result.recordset[0] : null;
   } catch (error) {
     throw error;
   }
@@ -22,20 +26,25 @@ const getById = async (id) => {
 
 const create = async (driverData) => {
   try {
-    const query = `
+    await db.poolConnect;
+    const request = db.pool.request();
+
+    request.input('D_RegisterID', db.sql.VarChar, driverData.D_RegisterID);
+    request.input('D_FullName', db.sql.NVarChar, driverData.D_FullName);
+    request.input('D_ContactNumber', db.sql.VarChar, driverData.D_ContactNumber);
+    request.input('Email', db.sql.VarChar, driverData.Email);
+    request.input('VehicalNumber', db.sql.VarChar, driverData.VehicalNumber);
+    request.input('Route', db.sql.NVarChar, driverData.Route);
+    request.input('Serial_Code', db.sql.VarChar, driverData.Serial_Code);
+
+    const result = await request.query(`
       INSERT INTO Driver (
         D_RegisterID, D_FullName, D_ContactNumber, Email, VehicalNumber, Route, Serial_Code
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await db.query(query, [
-      driverData.D_RegisterID,
-      driverData.D_FullName,
-      driverData.D_ContactNumber,
-      driverData.Email,
-      driverData.VehicalNumber,
-      driverData.Route,
-      driverData.Serial_Code,
-    ]);
+      ) VALUES (
+        @D_RegisterID, @D_FullName, @D_ContactNumber, @Email, @VehicalNumber, @Route, @Serial_Code
+      )
+    `);
+
     return result;
   } catch (error) {
     throw error;
@@ -44,25 +53,28 @@ const create = async (driverData) => {
 
 const update = async (id, driverData) => {
   try {
-    const query = `
+    await db.poolConnect;
+    const request = db.pool.request();
+
+    request.input('D_FullName', db.sql.NVarChar, driverData.D_FullName);
+    request.input('D_ContactNumber', db.sql.VarChar, driverData.D_ContactNumber);
+    request.input('Email', db.sql.VarChar, driverData.Email);
+    request.input('VehicalNumber', db.sql.VarChar, driverData.VehicalNumber);
+    request.input('Route', db.sql.NVarChar, driverData.Route);
+    request.input('Serial_Code', db.sql.VarChar, driverData.Serial_Code);
+    request.input('D_RegisterID', db.sql.VarChar, id);
+
+    const result = await request.query(`
       UPDATE Driver SET 
-        D_FullName = ?, 
-        D_ContactNumber = ?, 
-        Email = ?, 
-        VehicalNumber = ?, 
-        Route = ?, 
-        Serial_Code = ?
-      WHERE D_RegisterID = ?
-    `;
-    const [result] = await db.query(query, [
-      driverData.D_FullName,
-      driverData.D_ContactNumber,
-      driverData.Email,
-      driverData.VehicalNumber,
-      driverData.Route,
-      driverData.Serial_Code,
-      id,
-    ]);
+        D_FullName = @D_FullName, 
+        D_ContactNumber = @D_ContactNumber, 
+        Email = @Email, 
+        VehicalNumber = @VehicalNumber, 
+        Route = @Route, 
+        Serial_Code = @Serial_Code
+      WHERE D_RegisterID = @D_RegisterID
+    `);
+
     return result;
   } catch (error) {
     throw error;
@@ -71,7 +83,11 @@ const update = async (id, driverData) => {
 
 const deleteDriverById = async (id) => {
   try {
-    const [result] = await db.query('DELETE FROM Driver WHERE D_RegisterID = ?', [id]);
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('id', db.sql.VarChar, id);
+
+    const result = await request.query('DELETE FROM Driver WHERE D_RegisterID = @id');
     return result;
   } catch (error) {
     throw error;
