@@ -26,13 +26,14 @@ const getById = async (id) => {
 };
 
 // Helper function to update OTP in the database
+// Helper function to update OTP in the database
 const updateOtpInDatabase = async (driverId, otp) => {
   try {
     await db.poolConnect;
     const request = db.pool.request();
 
     request.input('D_RegisterID', db.sql.VarChar, driverId);
-    request.input('otp', db.sql.VarChar, otp);
+    request.input('otp', db.sql.VarChar, otp.toString());  // Ensure OTP is passed as a string
 
     // Update OTP for the driver in the database
     const result = await request.query(`
@@ -47,6 +48,8 @@ const updateOtpInDatabase = async (driverId, otp) => {
   }
 };
 
+
+// Request OTP for Driver Login
 // Request OTP for Driver Login
 export const requestOtpLogin = async (req, res) => {
   try {
@@ -59,7 +62,7 @@ export const requestOtpLogin = async (req, res) => {
     }
 
     // Generate OTP
-    const otp = generateOtp();
+    const otp = generateOtp().toString();  // Ensure OTP is a string
 
     // Store OTP in the database
     await updateOtpInDatabase(D_RegisterID, otp);
@@ -74,6 +77,8 @@ export const requestOtpLogin = async (req, res) => {
   }
 };
 
+
+// Validate OTP for Driver Login
 // Validate OTP for Driver Login
 export const validateOtpLogin = async (req, res) => {
   try {
@@ -100,6 +105,7 @@ export const validateOtpLogin = async (req, res) => {
     res.status(500).json({ message: 'Error validating OTP', error: error.message });
   }
 };
+
 
 
 // CRUD Operations for Driver (already defined in your previous code)
