@@ -1,10 +1,87 @@
 import db from '../config/db.js';
-import { generateOTP, sendOTPEmail } from '../helpers/otpHelper.js';
 
-// Get all drivers
+
+// Driver Model Methods - Internal functions
+const getAll = async () => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Driver');
+    return rows;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getById = async (id) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Driver WHERE D_RegisterID = ?', [id]);
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const create = async (driverData) => {
+  try {
+    const query = `
+      INSERT INTO Driver (
+        D_RegisterID, D_FullName, D_ContactNumber, Email, VehicalNumber, Route, Serial_Code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    const [result] = await db.query(query, [
+      driverData.D_RegisterID,
+      driverData.D_FullName,
+      driverData.D_ContactNumber,
+      driverData.Email,
+      driverData.VehicalNumber,
+      driverData.Route,
+      driverData.Serial_Code,
+    ]);
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const update = async (id, driverData) => {
+  try {
+    const query = `
+      UPDATE Driver SET 
+        D_FullName = ?, 
+        D_ContactNumber = ?, 
+        Email = ?, 
+        VehicalNumber = ?, 
+        Route = ?, 
+        Serial_Code = ?
+      WHERE D_RegisterID = ?
+    `;
+    const [result] = await db.query(query, [
+      driverData.D_FullName,
+      driverData.D_ContactNumber,
+      driverData.Email,
+      driverData.VehicalNumber,
+      driverData.Route,
+      driverData.Serial_Code,
+      id,
+    ]);
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const deleteDriverById = async (id) => {
+  try {
+    const [result] = await db.query('DELETE FROM Driver WHERE D_RegisterID = ?', [id]);
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Controller functions - Exported for routes
 export const getAllDrivers = async (req, res) => {
   try {
-    const [drivers] = await db.query('SELECT * FROM Driver');
+    const drivers = await getAll();
     res.status(200).json(drivers);
   } catch (error) {
     console.error('Error getting drivers:', error);
@@ -12,68 +89,44 @@ export const getAllDrivers = async (req, res) => {
   }
 };
 
-// Get a single driver by ID
 export const getDriverById = async (req, res) => {
   try {
-    const [results] = await db.query('SELECT * FROM Driver WHERE D_RegisterID = ?', [req.params.id]);
-    
-    if (results.length === 0) {
+    const driver = await getById(req.params.id);
+    if (!driver) {
       return res.status(404).json({ message: 'Driver not found' });
     }
-    res.status(200).json(results[0]);
+    res.status(200).json(driver);
   } catch (error) {
     console.error('Error getting driver:', error);
     res.status(500).json({ message: 'Error fetching driver', error: error.message });
   }
 };
 
-// Create a new driver
 export const createDriver = async (req, res) => {
   try {
-    const { D_RegisterID, D_FullName, D_ContactNumber, Email, VehicalNumber, Route, Serial_Code } = req.body;
-
-    // Validate required fields
-    if (!D_RegisterID || !D_FullName || !D_ContactNumber || !Email || !VehicalNumber || !Route) {
-      return res.status(400).json({
-        message: 'All fields (D_RegisterID, D_FullName, D_ContactNumber, Email, VehicalNumber, Route) are required',
-      });
+    const requiredFields = ['D_RegisterID', 'D_FullName', 'D_ContactNumber', 'Email', 'VehicalNumber', 'Route'];
+    for (const field of requiredFields) {
+      if (!req.body[field]) {
+        return res.status(400).json({ message: `${field} is required` });
+      }
     }
 
-    // Insert into database
-    const [result] = await db.query(
-      `INSERT INTO Driver (D_RegisterID, D_FullName, D_ContactNumber, Email, VehicalNumber, Route, Serial_Code) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [D_RegisterID, D_FullName, D_ContactNumber, Email, VehicalNumber, Route, Serial_Code]
-    );
-
-    res.status(201).json({
-      message: 'Driver created successfully',
-      driverId: result.insertId,
-    });
+    await create(req.body);
+    res.status(201).json({ message: 'Driver created successfully' });
   } catch (error) {
     console.error('Error creating driver:', error);
     res.status(500).json({ message: 'Error creating driver', error: error.message });
   }
 };
 
-// Update a driver
 export const updateDriver = async (req, res) => {
   try {
-    const { D_FullName, D_ContactNumber, Email, VehicalNumber, Route, Serial_Code } = req.body;
-
-    // Check if the driver exists
-    const [driver] = await db.query('SELECT * FROM Driver WHERE D_RegisterID = ?', [req.params.id]);
-    if (driver.length === 0) {
+    const driver = await getById(req.params.id);
+    if (!driver) {
       return res.status(404).json({ message: 'Driver not found' });
     }
 
-    // Update driver data
-    await db.query(
-      `UPDATE Driver SET D_FullName = ?, D_ContactNumber = ?, Email = ?, VehicalNumber = ?, Route = ?, Serial_Code = ? 
-      WHERE D_RegisterID = ?`,
-      [D_FullName, D_ContactNumber, Email, VehicalNumber, Route, Serial_Code, req.params.id]
-    );
-
+    await update(req.params.id, req.body);
     res.status(200).json({ message: 'Driver updated successfully' });
   } catch (error) {
     console.error('Error updating driver:', error);
@@ -81,69 +134,17 @@ export const updateDriver = async (req, res) => {
   }
 };
 
-// Delete a driver
 export const deleteDriver = async (req, res) => {
   try {
-    // Check if driver exists
-    const [driver] = await db.query('SELECT * FROM Driver WHERE D_RegisterID = ?', [req.params.id]);
-    if (driver.length === 0) {
+    const driver = await getById(req.params.id);
+    if (!driver) {
       return res.status(404).json({ message: 'Driver not found' });
     }
 
-    // Delete driver
-    await db.query('DELETE FROM Driver WHERE D_RegisterID = ?', [req.params.id]);
-
+    await deleteDriverById(req.params.id);
     res.status(200).json({ message: 'Driver deleted successfully' });
   } catch (error) {
     console.error('Error deleting driver:', error);
     res.status(500).json({ message: 'Error deleting driver', error: error.message });
-  }
-};
-
-// Driver login (Generate OTP)
-export const loginDriver = async (req, res) => {
-  try {
-    const { D_RegisterID } = req.body;
-
-    // Check if driver exists
-    const [driver] = await db.query('SELECT * FROM Driver WHERE D_RegisterID = ?', [D_RegisterID]);
-    if (driver.length === 0) {
-      return res.status(404).json({ message: 'Driver not found' });
-    }
-
-    // Generate OTP
-    const otp = generateOTP();
-
-    // Send OTP to driver's email
-    await sendOTPEmail(driver[0].Email, otp);
-
-    // Store OTP in session (or use another persistent method)
-    req.session.otp = otp;
-    req.session.driverId = D_RegisterID;
-
-    res.status(200).json({ message: 'OTP sent to email' });
-  } catch (error) {
-    console.error('Error during driver login:', error);
-    res.status(500).json({ message: 'Error during login', error: error.message });
-  }
-};
-
-// Verify OTP for driver login
-export const verifyOTP = async (req, res) => {
-  try {
-    const { otpEntered } = req.body;
-
-    // Check if OTP matches
-    if (req.session.otp !== otpEntered) {
-      return res.status(400).json({ message: 'Invalid OTP' });
-    }
-
-    // Clear OTP from session (security measure)
-    req.session.otp = null;
-
-    res.status(200).json({ message: 'Driver logged in successfully' });
-  } catch (error) {
-    console.error('Error verifying OTP:', error);
-    res.status(500).json({ message: 'Error verifying OTP', error: error.message });
   }
 };
