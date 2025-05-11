@@ -25,6 +25,28 @@ const getById = async (id) => {
   }
 };
 
+// Helper function to update OTP in the database
+const updateOtpInDatabase = async (driverId, otp) => {
+  try {
+    await db.poolConnect;
+    const request = db.pool.request();
+
+    request.input('D_RegisterID', db.sql.VarChar, driverId);
+    request.input('otp', db.sql.VarChar, otp);
+
+    // Update OTP for the driver in the database
+    const result = await request.query(`
+      UPDATE Driver 
+      SET OTP = @otp 
+      WHERE D_RegisterID = @D_RegisterID
+    `);
+
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};
+
 // Request OTP for Driver Login
 export const requestOtpLogin = async (req, res) => {
   try {
@@ -39,8 +61,8 @@ export const requestOtpLogin = async (req, res) => {
     // Generate OTP
     const otp = generateOtp();
 
-    // Store OTP on the driver object (consider using a more secure method like Redis or DB for production)
-    driver.otp = otp; // Storing OTP temporarily on the driver object (can be adjusted)
+    // Store OTP in the database
+    await updateOtpInDatabase(D_RegisterID, otp);
 
     // Send OTP to driver's email
     await sendOtpEmail(driver.Email, otp);
@@ -63,13 +85,13 @@ export const validateOtpLogin = async (req, res) => {
       return res.status(404).json({ message: 'Driver not found' });
     }
 
-    // Validate OTP
-    if (driver.otp === otp) {
+    // Validate OTP from the database
+    if (driver.OTP === otp) {
       // OTP is valid, proceed with login (you can issue a token here if needed)
       res.status(200).json({ message: 'Login successful' });
 
       // Optionally, clear the OTP after use for security purposes
-      delete driver.otp;
+      await updateOtpInDatabase(D_RegisterID, null);  // Clear OTP after successful login
     } else {
       res.status(400).json({ message: 'Invalid OTP' });
     }
@@ -78,6 +100,7 @@ export const validateOtpLogin = async (req, res) => {
     res.status(500).json({ message: 'Error validating OTP', error: error.message });
   }
 };
+
 
 // CRUD Operations for Driver (already defined in your previous code)
 
