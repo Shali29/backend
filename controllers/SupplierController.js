@@ -34,37 +34,38 @@ const getById = async (id) => {
 
 const create = async (supplierData) => {
   try {
-    // Hash password
+    await db.poolConnect; // ensure pool is connected
     const hashedPassword = await bcrypt.hash(supplierData.password, 10);
-    
-    const query = `
+    const request = db.pool.request();
+
+    // Bind input parameters
+    request.input('S_RegisterID', db.sql.VarChar, supplierData.S_RegisterID);
+    request.input('S_FullName', db.sql.NVarChar, supplierData.S_FullName);
+    request.input('S_Address', db.sql.NVarChar, supplierData.S_Address);
+    request.input('S_ContactNo', db.sql.VarChar, supplierData.S_ContactNo);
+    request.input('AccountNumber', db.sql.VarChar, supplierData.AccountNumber);
+    request.input('BankName', db.sql.VarChar, supplierData.BankName);
+    request.input('Branch', db.sql.VarChar, supplierData.Branch);
+    request.input('Email', db.sql.VarChar, supplierData.Email);
+    request.input('Username', db.sql.VarChar, supplierData.Username);
+    request.input('hash_Password', db.sql.VarChar, hashedPassword);
+
+    const result = await request.query(`
       INSERT INTO Supplier (
         S_RegisterID, S_FullName, S_Address, S_ContactNo, 
         AccountNumber, BankName, Branch, Email, Username, hash_Password
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    
-    const [result] = await db.query(
-      query,
-      [
-        supplierData.S_RegisterID,
-        supplierData.S_FullName,
-        supplierData.S_Address,
-        supplierData.S_ContactNo,
-        supplierData.AccountNumber,
-        supplierData.BankName,
-        supplierData.Branch,
-        supplierData.Email,
-        supplierData.Username,
-        hashedPassword
-      ]
-    );
-    
+      ) VALUES (
+        @S_RegisterID, @S_FullName, @S_Address, @S_ContactNo,
+        @AccountNumber, @BankName, @Branch, @Email, @Username, @hash_Password
+      )
+    `);
+
     return result;
   } catch (error) {
     throw error;
   }
 };
+
 
 const update = async (id, supplierData) => {
   try {
