@@ -11,6 +11,7 @@ import SupplierAdvanceRoute from './routes/SupplierLoanRoute.js';
 import SupplierCollectionRoute from './routes/SupplierCollectionRoute.js';
 import SupplierPaymentRoute from './routes/SupplierPaymentRoute.js'; 
 import TeaPacketFertilizerRoute from './routes/TeaPacketFertilizerRoute.js';
+import rateRoutes from './routes/RateRoutes.js';
 
 
 const app = express();
@@ -29,7 +30,7 @@ app.use('/api/supplierAdvance', SupplierAdvanceRoute);
 app.use('/api/supplierCollection', SupplierCollectionRoute);
 app.use('/api/supplierPayment', SupplierPaymentRoute);
 app.use('/api/teaPacketFertilizer', TeaPacketFertilizerRoute);
- 
+app.use('/api/rate', rateRoutes); 
 
 app.get('/test-db', async (req, res) => {
   console.log('Test DB endpoint hit');
