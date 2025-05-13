@@ -1,92 +1,85 @@
 import db from '../config/db.js';
 
-// Product Model Methods - Internal functions
+// Model Methods (Internal)
 const getAll = async () => {
-  try {
-    const [rows] = await db.query('SELECT * FROM Products');
-    return rows;
-  } catch (error) {
-    throw error;
-  }
+  await db.poolConnect;
+  const result = await db.pool.request().query('SELECT * FROM Products');
+  return result.recordset;
 };
 
 const getById = async (id) => {
-  try {
-    const [rows] = await db.query('SELECT * FROM Products WHERE ProductID = ?', [id]);
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    throw error;
-  }
+  await db.poolConnect;
+  const request = db.pool.request();
+  request.input('id', db.sql.VarChar, id);
+
+  const result = await request.query('SELECT * FROM Products WHERE ProductID = @id');
+  return result.recordset.length > 0 ? result.recordset[0] : null;
 };
 
 const create = async (productData) => {
-  try {
-    const query = `
-      INSERT INTO Products (ProductID, ProductName, Rate_per_Bag, Stock_bag)
-      VALUES (?, ?, ?, ?)
-    `;
-    const [result] = await db.query(query, [
-      productData.ProductID,
-      productData.ProductName,
-      productData.Rate_per_Bag,
-      productData.Stock_bag
-    ]);
-    return result;
-  } catch (error) {
-    throw error;
-  }
+  await db.poolConnect;
+  const request = db.pool.request();
+
+  request.input('ProductID', db.sql.VarChar, productData.ProductID);
+  request.input('ProductName', db.sql.NVarChar, productData.ProductName);
+  request.input('Rate_per_Bag', db.sql.Decimal(10, 2), productData.Rate_per_Bag);
+  request.input('Stock_bag', db.sql.Int, productData.Stock_bag);
+
+  const result = await request.query(`
+    INSERT INTO Products (ProductID, ProductName, Rate_per_Bag, Stock_bag)
+    VALUES (@ProductID, @ProductName, @Rate_per_Bag, @Stock_bag)
+  `);
+  return result;
 };
 
 const update = async (id, productData) => {
-  try {
-    const query = `
-      UPDATE Products SET 
-        ProductName = ?, 
-        Rate_per_Bag = ?, 
-        Stock_bag = ?
-      WHERE ProductID = ?
-    `;
-    const [result] = await db.query(query, [
-      productData.ProductName,
-      productData.Rate_per_Bag,
-      productData.Stock_bag,
-      id
-    ]);
-    return result;
-  } catch (error) {
-    throw error;
-  }
+  await db.poolConnect;
+  const request = db.pool.request();
+
+  request.input('id', db.sql.VarChar, id);
+  request.input('ProductName', db.sql.NVarChar, productData.ProductName);
+  request.input('Rate_per_Bag', db.sql.Decimal(10, 2), productData.Rate_per_Bag);
+  request.input('Stock_bag', db.sql.Int, productData.Stock_bag);
+
+  const result = await request.query(`
+    UPDATE Products SET 
+      ProductName = @ProductName, 
+      Rate_per_Bag = @Rate_per_Bag, 
+      Stock_bag = @Stock_bag
+    WHERE ProductID = @id
+  `);
+  return result;
 };
 
 const updateStock = async (id, quantity) => {
-  try {
-    const query = `
-      UPDATE Products SET 
-        Stock_bag = Stock_bag - ?
-      WHERE ProductID = ? AND Stock_bag >= ?
-    `;
-    const [result] = await db.query(query, [quantity, id, quantity]);
+  await db.poolConnect;
+  const request = db.pool.request();
 
-    if (result.affectedRows === 0) {
-      throw new Error('Not enough stock available');
-    }
+  request.input('id', db.sql.VarChar, id);
+  request.input('qty', db.sql.Int, quantity);
 
-    return result;
-  } catch (error) {
-    throw error;
+  const result = await request.query(`
+    UPDATE Products SET Stock_bag = Stock_bag - @qty
+    WHERE ProductID = @id AND Stock_bag >= @qty
+  `);
+
+  if (result.rowsAffected[0] === 0) {
+    throw new Error('Not enough stock available');
   }
+
+  return result;
 };
 
 const deleteProductById = async (id) => {
-  try {
-    const [result] = await db.query('DELETE FROM Products WHERE ProductID = ?', [id]);
-    return result;
-  } catch (error) {
-    throw error;
-  }
+  await db.poolConnect;
+  const request = db.pool.request();
+  request.input('id', db.sql.VarChar, id);
+
+  const result = await request.query('DELETE FROM Products WHERE ProductID = @id');
+  return result;
 };
 
-// Controller functions - Exported for routes
+// --- Controller Functions ---
 export const getAllProducts = async (req, res) => {
   try {
     const products = await getAll();
