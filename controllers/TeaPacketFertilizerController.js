@@ -54,7 +54,7 @@ class TeaPacketsFertilizersModel {
     const totalOther = orderData.Total_OtherItems || orderData.Qty;
 
     request.input('S_RegisterID', db.sql.VarChar, orderData.S_RegisterID);
-    request.input('ProductID', db.sql.Int, orderData.ProductID);
+    request.input('ProductID', db.sql.VarChar, orderData.ProductID);
     request.input('Qty', db.sql.Int, orderData.Qty);
     request.input('Order_Status', db.sql.VarChar, status);
     request.input('Total_Items', db.sql.Int, totalItems);
@@ -92,7 +92,7 @@ class TeaPacketsFertilizersModel {
 
     request.input('id', db.sql.Int, id);
     request.input('S_RegisterID', db.sql.VarChar, orderData.S_RegisterID);
-    request.input('ProductID', db.sql.Int, orderData.ProductID);
+    request.input('ProductID', db.sql.VarChar, orderData.ProductID);
     request.input('Qty', db.sql.Int, orderData.Qty);
     request.input('Order_Status', db.sql.VarChar, orderData.Order_Status);
     request.input('Total_Items', db.sql.Int, orderData.Total_Items);
