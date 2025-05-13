@@ -1,199 +1,181 @@
 import db from '../config/db.js';
+import sql from 'mssql'; // Ensure this is installed and imported
 
-// Model class
 class Loan {
-  // Fetch all supplier loans ordered by due date
   static async getAll() {
     try {
-      const [results] = await db.query(`
+      const result = await db.pool.request().query(`
         SELECT sl.*, s.S_FullName 
         FROM Supplier_Loan sl
         JOIN Supplier s ON sl.S_RegisterID = s.S_RegisterID
         ORDER BY sl.Due_Date ASC
       `);
-      return results;
+      return result.recordset;
     } catch (error) {
       throw error;
     }
   }
 
-  // Fetch a supplier loan by its ID
   static async getById(id) {
     try {
-      const [results] = await db.query(`
-        SELECT sl.*, s.S_FullName 
-        FROM Supplier_Loan sl
-        JOIN Supplier s ON sl.S_RegisterID = s.S_RegisterID
-        WHERE sl.LoanID = ?
-      `, [id]);
-      
-      return results.length === 0 ? null : results[0];
+      const result = await db.pool.request()
+        .input('id', sql.Int, id)
+        .query(`
+          SELECT sl.*, s.S_FullName 
+          FROM Supplier_Loan sl
+          JOIN Supplier s ON sl.S_RegisterID = s.S_RegisterID
+          WHERE sl.LoanID = @id
+        `);
+      return result.recordset.length === 0 ? null : result.recordset[0];
     } catch (error) {
       throw error;
     }
   }
 
-  // Fetch all loans for a specific supplier ordered by due date
-  // Note: Fixed method name from getBySupplierId to getBySupplier to match controller usage
   static async getBySupplier(supplierId) {
     try {
-      const [results] = await db.query(`
-        SELECT * FROM Supplier_Loan 
-        WHERE S_RegisterID = ?
-        ORDER BY Due_Date ASC
-      `, [supplierId]);
-      return results;
+      const result = await db.pool.request()
+        .input('supplierId', sql.VarChar, supplierId)
+        .query(`
+          SELECT * FROM Supplier_Loan 
+          WHERE S_RegisterID = @supplierId
+          ORDER BY Due_Date ASC
+        `);
+      return result.recordset;
     } catch (error) {
       throw error;
     }
   }
 
-  // Create a new supplier loan
   static async create(loanData) {
     try {
-      // Calculate the monthly amount based on loan amount and duration
-      const monthlyAmount = loanData.Duration > 0 ? 
+      const monthlyAmount = loanData.Duration > 0 ?
         loanData.Loan_Amount / loanData.Duration : loanData.Loan_Amount;
-      
-      // Calculate due date (current date + duration in months)
+
       const dueDate = new Date();
       dueDate.setMonth(dueDate.getMonth() + loanData.Duration);
-      
-      const query = `
-        INSERT INTO Supplier_Loan (
-          S_RegisterID, Loan_Amount, Duration, PurposeOfLoan, 
-          Monthly_Amount, Due_Date, Status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
-      
-      const [result] = await db.query(query, [
-        loanData.S_RegisterID,
-        loanData.Loan_Amount,
-        loanData.Duration,
-        loanData.PurposeOfLoan,
-        monthlyAmount,
-        dueDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
-        loanData.Status || 'Pending'
-      ]);
-      
+      const formattedDueDate = dueDate.toISOString().split('T')[0];
+
+      const result = await db.pool.request()
+        .input('S_RegisterID', sql.VarChar, loanData.S_RegisterID)
+        .input('Loan_Amount', sql.Decimal(10, 2), loanData.Loan_Amount)
+        .input('Duration', sql.Int, loanData.Duration)
+        .input('PurposeOfLoan', sql.NVarChar, loanData.PurposeOfLoan)
+        .input('Monthly_Amount', sql.Decimal(10, 2), monthlyAmount)
+        .input('Due_Date', sql.Date, formattedDueDate)
+        .input('Status', sql.VarChar, loanData.Status || 'Pending')
+        .query(`
+          INSERT INTO Supplier_Loan (
+            S_RegisterID, Loan_Amount, Duration, PurposeOfLoan, 
+            Monthly_Amount, Due_Date, Status
+          )
+          VALUES (
+            @S_RegisterID, @Loan_Amount, @Duration, @PurposeOfLoan,
+            @Monthly_Amount, @Due_Date, @Status
+          )
+        `);
       return result;
     } catch (error) {
       throw error;
     }
   }
 
-  // Update the status of a supplier loan
   static async updateStatus(id, status) {
     try {
-      const [result] = await db.query(
-        'UPDATE Supplier_Loan SET Status = ? WHERE LoanID = ?',
-        [status, id]
-      );
+      const result = await db.pool.request()
+        .input('id', sql.Int, id)
+        .input('status', sql.VarChar, status)
+        .query('UPDATE Supplier_Loan SET Status = @status WHERE LoanID = @id');
       return result;
     } catch (error) {
       throw error;
     }
   }
 
-  // Update an existing supplier loan
   static async update(id, loanData) {
     try {
-      // Calculate the monthly amount based on loan amount and duration
-      const monthlyAmount = loanData.Duration > 0 ? 
+      const monthlyAmount = loanData.Duration > 0 ?
         loanData.Loan_Amount / loanData.Duration : loanData.Loan_Amount;
-      
-      const query = `
-        UPDATE Supplier_Loan SET 
-          S_RegisterID = ?, 
-          Loan_Amount = ?, 
-          Duration = ?, 
-          PurposeOfLoan = ?, 
-          Monthly_Amount = ?, 
-          Due_Date = ?, 
-          Status = ?
-        WHERE LoanID = ?
-      `;
-      
-      // If the due date is provided, use it; otherwise, calculate it
-      let dueDate;
-      if (loanData.Due_Date) {
-        dueDate = loanData.Due_Date;
-      } else {
-        dueDate = new Date();
-        dueDate.setMonth(dueDate.getMonth() + loanData.Duration);
-        dueDate = dueDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+
+      let dueDate = loanData.Due_Date;
+      if (!dueDate) {
+        const d = new Date();
+        d.setMonth(d.getMonth() + loanData.Duration);
+        dueDate = d.toISOString().split('T')[0];
       }
-      
-      const [result] = await db.query(
-        query,
-        [
-          loanData.S_RegisterID,
-          loanData.Loan_Amount,
-          loanData.Duration,
-          loanData.PurposeOfLoan,
-          monthlyAmount,
-          dueDate,
-          loanData.Status,
-          id
-        ]
-      );
+
+      const result = await db.pool.request()
+        .input('id', sql.Int, id)
+        .input('S_RegisterID', sql.VarChar, loanData.S_RegisterID)
+        .input('Loan_Amount', sql.Decimal(10, 2), loanData.Loan_Amount)
+        .input('Duration', sql.Int, loanData.Duration)
+        .input('PurposeOfLoan', sql.NVarChar, loanData.PurposeOfLoan)
+        .input('Monthly_Amount', sql.Decimal(10, 2), monthlyAmount)
+        .input('Due_Date', sql.Date, dueDate)
+        .input('Status', sql.VarChar, loanData.Status)
+        .query(`
+          UPDATE Supplier_Loan SET 
+            S_RegisterID = @S_RegisterID,
+            Loan_Amount = @Loan_Amount,
+            Duration = @Duration,
+            PurposeOfLoan = @PurposeOfLoan,
+            Monthly_Amount = @Monthly_Amount,
+            Due_Date = @Due_Date,
+            Status = @Status
+          WHERE LoanID = @id
+        `);
       return result;
     } catch (error) {
       throw error;
     }
   }
 
-  // Delete a supplier loan by its ID
   static async delete(id) {
     try {
-      const [result] = await db.query('DELETE FROM Supplier_Loan WHERE LoanID = ?', [id]);
+      const result = await db.pool.request()
+        .input('id', sql.Int, id)
+        .query('DELETE FROM Supplier_Loan WHERE LoanID = @id');
       return result;
     } catch (error) {
       throw error;
     }
   }
 
-  // Get loan statistics (implementation for referenced method in controller)
   static async getStatistics() {
     try {
-      // Get total loans count and sum
-      const [totalLoans] = await db.query(`
+      const totalLoans = await db.pool.request().query(`
         SELECT COUNT(*) as count, SUM(Loan_Amount) as totalAmount 
         FROM Supplier_Loan
       `);
-      
-      // Get pending loans
-      const [pendingLoans] = await db.query(`
+
+      const pendingLoans = await db.pool.request().query(`
+        SELECT COUNT(*) as count, SUM(Loan_Amount) as totalAmount 
+        FROM Supplier_Loan WHERE Status = 'Pending'
+      `);
+
+      const paidLoans = await db.pool.request().query(`
+        SELECT COUNT(*) as count, SUM(Loan_Amount) as totalAmount 
+        FROM Supplier_Loan WHERE Status = 'Paid'
+      `);
+
+      const overdueLoans = await db.pool.request().query(`
         SELECT COUNT(*) as count, SUM(Loan_Amount) as totalAmount 
         FROM Supplier_Loan 
-        WHERE Status = 'Pending'
+        WHERE Due_Date < GETDATE() AND Status != 'Paid'
       `);
-      
-      // Get paid loans
-      const [paidLoans] = await db.query(`
-        SELECT COUNT(*) as count, SUM(Loan_Amount) as totalAmount 
-        FROM Supplier_Loan 
-        WHERE Status = 'Paid'
-      `);
-      
-      // Get overdue loans (due date passed and status not paid)
-      const [overdueLoans] = await db.query(`
-        SELECT COUNT(*) as count, SUM(Loan_Amount) as totalAmount 
-        FROM Supplier_Loan 
-        WHERE Due_Date < CURDATE() AND Status != 'Paid'
-      `);
-      
+
       return {
-        total: totalLoans[0],
-        pending: pendingLoans[0],
-        paid: paidLoans[0],
-        overdue: overdueLoans[0]
+        total: totalLoans.recordset[0],
+        pending: pendingLoans.recordset[0],
+        paid: paidLoans.recordset[0],
+        overdue: overdueLoans.recordset[0]
       };
     } catch (error) {
       throw error;
     }
   }
 }
+
 
 // Controller functions
 // Get all supplier loans
