@@ -8,8 +8,8 @@ import ProductRoute from './routes/ProductRoute.js';
 import DriverRoute from './routes/DriverRoute.js';
 import SupplierLoanRoute from './routes/SupplierLoanRoute.js';  
 import SupplierAdvanceRoute from './routes/SupplierLoanRoute.js';
-import SupplierCollectionRoute from './routes/SupplierAdvanceRoute.js';
-import SupplierPaymentRoute from './routes/SupplierAdvanceRoute.js';
+import SupplierCollectionRoute from './routes/SupplierCollectionRoute.js';
+import SupplierPaymentRoute from './routes/SupplierPaymentRoute.js'; 
 import TeaPacketFertilizerRoute from './routes/TeaPacketFertilizerRoute.js';
 
 

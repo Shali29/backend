@@ -1,15 +1,16 @@
-import db from '../config/db.js';
+import db from '../config/db.js'; // assuming db is set up using mssql
 
 // Get all collections with supplier names
 export const getAllCollections = async (req, res) => {
   try {
-    const [collections] = await db.query(`
+    await db.poolConnect;
+    const result = await db.pool.request().query(`
       SELECT sc.*, s.S_FullName 
       FROM Supplier_Collection sc
       JOIN Supplier s ON sc.S_RegisterID = s.S_RegisterID
       ORDER BY sc.DateTime DESC
     `);
-    res.status(200).json(collections);
+    res.status(200).json(result.recordset);
   } catch (error) {
     console.error('Error getting collections:', error);
     res.status(500).json({ message: 'Error fetching collections', error: error.message });
@@ -19,17 +20,22 @@ export const getAllCollections = async (req, res) => {
 // Get a single collection by ID
 export const getCollectionById = async (req, res) => {
   try {
-    const [results] = await db.query(`
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('id', db.sql.Int, req.params.id);
+
+    const result = await request.query(`
       SELECT sc.*, s.S_FullName 
       FROM Supplier_Collection sc
       JOIN Supplier s ON sc.S_RegisterID = s.S_RegisterID
-      WHERE sc.Collection_ID = ?
-    `, [req.params.id]);
+      WHERE sc.Collection_ID = @id
+    `);
 
-    if (results.length === 0) {
+    if (result.recordset.length === 0) {
       return res.status(404).json({ message: 'Collection not found' });
     }
-    res.status(200).json(results[0]);
+
+    res.status(200).json(result.recordset[0]);
   } catch (error) {
     console.error('Error getting collection:', error);
     res.status(500).json({ message: 'Error fetching collection', error: error.message });
@@ -39,12 +45,16 @@ export const getCollectionById = async (req, res) => {
 // Get all collections for a specific supplier
 export const getCollectionsBySupplier = async (req, res) => {
   try {
-    const [collections] = await db.query(`
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('supplierId', db.sql.VarChar, req.params.supplierId);
+
+    const result = await request.query(`
       SELECT * FROM Supplier_Collection 
-      WHERE S_RegisterID = ?
+      WHERE S_RegisterID = @supplierId
       ORDER BY DateTime DESC
-    `, [req.params.supplierId]);
-    res.status(200).json(collections);
+    `);
+    res.status(200).json(result.recordset);
   } catch (error) {
     console.error('Error getting supplier collections:', error);
     res.status(500).json({ message: 'Error fetching supplier collections', error: error.message });
@@ -54,7 +64,6 @@ export const getCollectionsBySupplier = async (req, res) => {
 // Create a new collection
 export const createCollection = async (req, res) => {
   try {
-    // Destructure required fields from request body
     const {
       S_RegisterID,
       Current_Rate,
@@ -63,20 +72,27 @@ export const createCollection = async (req, res) => {
       Bag_kg
     } = req.body;
 
-    // Validate required fields
     if (!S_RegisterID || !Current_Rate || !TeaBagWeight_kg || !Water_kg || !Bag_kg) {
-      return res.status(400).json({ 
-        message: 'All fields (S_RegisterID, Current_Rate, TeaBagWeight_kg, Water_kg, Bag_kg) are required' 
+      return res.status(400).json({
+        message: 'All fields (S_RegisterID, Current_Rate, TeaBagWeight_kg, Water_kg, Bag_kg) are required'
       });
     }
 
-    // Calculate derived fields
     const BalanceWeight_kg = parseFloat(TeaBagWeight_kg) - parseFloat(Water_kg) - parseFloat(Bag_kg);
     const TotalWeight = BalanceWeight_kg;
 
-    // Insert into database (DateTime will use DEFAULT CURRENT_TIMESTAMP)
-    const [result] = await db.query(
-      `INSERT INTO Supplier_Collection (
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('S_RegisterID', db.sql.VarChar, S_RegisterID);
+    request.input('Current_Rate', db.sql.Decimal(10, 2), Current_Rate);
+    request.input('TeaBagWeight_kg', db.sql.Decimal(10, 2), TeaBagWeight_kg);
+    request.input('Water_kg', db.sql.Decimal(10, 2), Water_kg);
+    request.input('Bag_kg', db.sql.Decimal(10, 2), Bag_kg);
+    request.input('BalanceWeight_kg', db.sql.Decimal(10, 2), BalanceWeight_kg);
+    request.input('TotalWeight', db.sql.Decimal(10, 2), TotalWeight);
+
+    const result = await request.query(`
+      INSERT INTO Supplier_Collection (
         S_RegisterID,
         Current_Rate,
         TeaBagWeight_kg,
@@ -84,59 +100,44 @@ export const createCollection = async (req, res) => {
         Bag_kg,
         BalanceWeight_kg,
         TotalWeight
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        S_RegisterID,
-        Current_Rate,
-        TeaBagWeight_kg,
-        Water_kg,
-        Bag_kg,
-        BalanceWeight_kg,
-        TotalWeight
-      ]
-    );
+      ) 
+      OUTPUT INSERTED.Collection_ID
+      VALUES (
+        @S_RegisterID,
+        @Current_Rate,
+        @TeaBagWeight_kg,
+        @Water_kg,
+        @Bag_kg,
+        @BalanceWeight_kg,
+        @TotalWeight
+      )
+    `);
 
     res.status(201).json({
       message: 'Collection created successfully',
-      collectionId: result.insertId,
+      collectionId: result.recordset[0].Collection_ID,
       balanceWeight: BalanceWeight_kg
     });
-
   } catch (error) {
     console.error('Error creating collection:', error);
-    
-    // Handle specific database errors
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-      return res.status(400).json({ 
-        message: 'Invalid Supplier ID (S_RegisterID does not exist)' 
-      });
-    }
-
-    res.status(500).json({ 
-      message: 'Error creating collection',
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Error creating collection', error: error.message });
   }
 };
 
 // Delete a collection
 export const deleteCollection = async (req, res) => {
   try {
-    // First check if collection exists
-    const [checkResults] = await db.query(
-      'SELECT * FROM Supplier_Collection WHERE Collection_ID = ?',
-      [req.params.id]
-    );
-    
-    if (checkResults.length === 0) {
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('id', db.sql.Int, req.params.id);
+
+    const check = await request.query(`SELECT * FROM Supplier_Collection WHERE Collection_ID = @id`);
+
+    if (check.recordset.length === 0) {
       return res.status(404).json({ message: 'Collection not found' });
     }
 
-    // Delete collection
-    await db.query(
-      'DELETE FROM Supplier_Collection WHERE Collection_ID = ?',
-      [req.params.id]
-    );
+    await request.query(`DELETE FROM Supplier_Collection WHERE Collection_ID = @id`);
 
     res.status(200).json({ message: 'Collection deleted successfully' });
   } catch (error) {
@@ -148,29 +149,27 @@ export const deleteCollection = async (req, res) => {
 // Get collection statistics
 export const getCollectionStatistics = async (req, res) => {
   try {
-    // Get total collections count
-    const [countResult] = await db.query('SELECT COUNT(*) as totalCollections FROM Supplier_Collection');
-    
-    // Get total tea weight collected
-    const [weightResult] = await db.query('SELECT SUM(BalanceWeight_kg) as totalTeaWeight FROM Supplier_Collection');
-    
-    // Get average rate
-    const [rateResult] = await db.query('SELECT AVG(Current_Rate) as averageRate FROM Supplier_Collection');
-    
-    // Get collections by date (last 30 days)
-    const [dailyCollections] = await db.query(`
-      SELECT DATE(DateTime) as date, SUM(BalanceWeight_kg) as totalWeight
+    await db.poolConnect;
+
+    const countResult = await db.pool.request().query(`SELECT COUNT(*) as totalCollections FROM Supplier_Collection`);
+    const weightResult = await db.pool.request().query(`SELECT SUM(BalanceWeight_kg) as totalTeaWeight FROM Supplier_Collection`);
+    const rateResult = await db.pool.request().query(`SELECT AVG(Current_Rate) as averageRate FROM Supplier_Collection`);
+
+    const dailyCollections = await db.pool.request().query(`
+      SELECT 
+        CONVERT(DATE, DateTime) as date, 
+        SUM(BalanceWeight_kg) as totalWeight
       FROM Supplier_Collection
-      WHERE DateTime >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-      GROUP BY DATE(DateTime)
+      WHERE DateTime >= DATEADD(DAY, -30, GETDATE())
+      GROUP BY CONVERT(DATE, DateTime)
       ORDER BY date ASC
     `);
 
     res.status(200).json({
-      totalCollections: countResult[0].totalCollections,
-      totalTeaWeight: weightResult[0].totalTeaWeight || 0,
-      averageRate: rateResult[0].averageRate || 0,
-      dailyCollections: dailyCollections
+      totalCollections: countResult.recordset[0].totalCollections,
+      totalTeaWeight: weightResult.recordset[0].totalTeaWeight || 0,
+      averageRate: rateResult.recordset[0].averageRate || 0,
+      dailyCollections: dailyCollections.recordset
     });
   } catch (error) {
     console.error('Error getting collection statistics:', error);
