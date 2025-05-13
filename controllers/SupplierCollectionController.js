@@ -72,7 +72,7 @@ export const createCollection = async (req, res) => {
       Bag_kg
     } = req.body;
 
-    if (!S_RegisterID || !Current_Rate || !TeaBagWeight_kg || !Water_kg || !Bag_kg) {
+    if (!S_RegisterID || !Current_Rate || !TeaBagWeight_kg || !Bag_kg) {
       return res.status(400).json({
         message: 'All fields (S_RegisterID, Current_Rate, TeaBagWeight_kg, Water_kg, Bag_kg) are required'
       });
