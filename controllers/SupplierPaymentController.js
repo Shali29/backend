@@ -156,3 +156,14 @@ const SupplierPayment = {
 };
 
 export default SupplierPayment;
+
+// 👇 ADD THIS at the bottom of your controller file
+export const calculatePayment = async (req, res) => {
+  try {
+    const result = await SupplierPayment.calculate(req.params.supplierId);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error calculating payment:', error);
+    res.status(500).json({ message: 'Error calculating payment', error: error.message });
+  }
+};
