@@ -176,3 +176,60 @@ export const getCollectionStatistics = async (req, res) => {
     res.status(500).json({ message: 'Error fetching collection statistics', error: error.message });
   }
 };
+
+
+// Update an existing supplier collection
+export const updateCollection = async (req, res) => {
+  try {
+    const {
+      Collection_ID,
+      S_RegisterID,
+      Current_Rate,
+      TeaBagWeight_kg,
+      Water_kg,
+      Bag_kg
+    } = req.body;
+
+    if (!Collection_ID || !S_RegisterID || !Current_Rate || !TeaBagWeight_kg || !Water_kg || !Bag_kg) {
+      return res.status(400).json({
+        message: 'All fields (Collection_ID, S_RegisterID, Current_Rate, TeaBagWeight_kg, Water_kg, Bag_kg) are required'
+      });
+    }
+
+    const BalanceWeight_kg = parseFloat(TeaBagWeight_kg) - parseFloat(Water_kg) - parseFloat(Bag_kg);
+    const TotalWeight = BalanceWeight_kg;
+
+    await db.poolConnect;
+    const request = db.pool.request();
+
+    request.input('Collection_ID', db.sql.Int, Collection_ID);
+    request.input('S_RegisterID', db.sql.VarChar, S_RegisterID);
+    request.input('Current_Rate', db.sql.Decimal(10, 2), Current_Rate);
+    request.input('TeaBagWeight_kg', db.sql.Decimal(10, 2), TeaBagWeight_kg);
+    request.input('Water_kg', db.sql.Decimal(10, 2), Water_kg);
+    request.input('Bag_kg', db.sql.Decimal(10, 2), Bag_kg);
+    request.input('BalanceWeight_kg', db.sql.Decimal(10, 2), BalanceWeight_kg);
+    request.input('TotalWeight', db.sql.Decimal(10, 2), TotalWeight);
+
+    const result = await request.query(`
+      UPDATE Supplier_Collection SET
+        S_RegisterID = @S_RegisterID,
+        Current_Rate = @Current_Rate,
+        TeaBagWeight_kg = @TeaBagWeight_kg,
+        Water_kg = @Water_kg,
+        Bag_kg = @Bag_kg,
+        BalanceWeight_kg = @BalanceWeight_kg,
+        TotalWeight = @TotalWeight
+      WHERE Collection_ID = @Collection_ID
+    `);
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: 'Collection not found' });
+    }
+
+    res.status(200).json({ message: 'Collection updated successfully' });
+  } catch (error) {
+    console.error('Error updating collection:', error);
+    res.status(500).json({ message: 'Error updating collection', error: error.message });
+  }
+};
