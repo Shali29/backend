@@ -8,7 +8,8 @@ import {
   createOrder,
   updateOrderStatus,
   updateOrder,
-  deleteOrder
+  deleteOrder,
+  createBulkOrders
 } from '../controllers/TeaPacketFertilizerController.js';
 
 const router = express.Router();
@@ -33,5 +34,8 @@ router.put('/update/:id', updateOrder);
 
 // Delete an order
 router.delete('/delete/:id', deleteOrder);
+
+router.post('/createBulk', createBulkOrders);
+
 
 export default router;
