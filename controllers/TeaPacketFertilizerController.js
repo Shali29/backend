@@ -278,6 +278,13 @@ export const updateOrderStatus = async (req, res) => {
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     await TeaPacketsFertilizersModel.updateStatus(req.params.id, status);
+
+    // Send notification to supplier
+    if (order.S_RegisterID) {
+      const message = `Your order #${req.params.id} status has been updated to "${status}".`;
+      await sendNotificationToSupplier(order.S_RegisterID, message);
+    }
+
     res.status(200).json({ message: 'Order status updated successfully' });
   } catch (error) {
     console.error('Error updating order status:', error);
