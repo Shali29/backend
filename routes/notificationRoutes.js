@@ -1,9 +1,19 @@
 import express from 'express';
-import { getNotificationsBySupplier, markNotificationRead } from '../controllers/NotificationController.js';
+import {
+  getNotificationsBySupplier,
+  markSupplierNotificationRead,
+  getNotificationsByDriver,
+  markDriverNotificationRead,
+} from '../controllers/NotificationController.js';
 
 const router = express.Router();
 
-router.get('/:supplierId', getNotificationsBySupplier);
-router.put('/read/:id', markNotificationRead);
+// Supplier routes
+router.get('/supplier/:supplierId', getNotificationsBySupplier);
+router.put('/supplier/read/:id', markSupplierNotificationRead);
+
+// Driver routes
+router.get('/driver/:driverId', getNotificationsByDriver);
+router.put('/driver/read/:id', markDriverNotificationRead);
 
 export default router;
