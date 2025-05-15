@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import sql from 'mssql'; // Ensure this is installed and imported
+import { sendNotificationToSupplier } from '../utils/notificationUtils.js'; 
 
 class Loan {
   static async getAll() {
@@ -258,8 +259,14 @@ export const updateLoanStatus = async (req, res) => {
       return res.status(404).json({ message: 'Loan not found' });
     }
 
-    // Optionally, return updated loan data
     const updatedLoan = await Loan.getById(id);
+
+    // Send notification to supplier
+    if (updatedLoan && updatedLoan.S_RegisterID) {
+      const message = `Your loan status has been updated to "${status}".`;
+      await sendNotificationToSupplier(updatedLoan.S_RegisterID, message);
+    }
+
     res.status(200).json({ message: 'Status updated successfully', loan: updatedLoan });
   } catch (error) {
     console.error('Error updating loan status:', error);
