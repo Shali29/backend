@@ -1,4 +1,6 @@
 import db from '../config/db.js';
+import { sendNotificationToDriver } from '../utils/notificationUtils.js';
+
 
 class TeaPacketsFertilizersModel {
   static async getAll() {
@@ -181,34 +183,7 @@ export const getAllOrders = async (req, res) => {
   }
 };
 // Controller function to create multiple orders in bulk
-export const createBulkOrders = async (req, res) => {
-  try {
-    const orders = req.body; // expecting an array of orders
-    if (!Array.isArray(orders) || orders.length === 0) {
-      return res.status(400).json({ message: 'An array of orders is required' });
-    }
 
-    // Assuming your model has a createBulk method (you need to add this too)
-    for (const orderData of orders) {
-      const requiredFields = ['S_RegisterID', 'ProductID', 'Qty'];
-      for (const field of requiredFields) {
-        if (!orderData[field]) {
-          return res.status(400).json({ message: `${field} is required in one of the orders` });
-        }
-      }
-    }
-
-    // Bulk insert logic (could be optimized with a batch insert query)
-    for (const orderData of orders) {
-      await TeaPacketsFertilizersModel.create(orderData);
-    }
-
-    res.status(201).json({ message: 'Bulk orders created successfully' });
-  } catch (error) {
-    console.error('Error creating bulk orders:', error);
-    res.status(500).json({ message: 'Error creating bulk orders', error: error.message });
-  }
-};
 
 export const getOrderById = async (req, res) => {
   try {
@@ -231,9 +206,10 @@ export const getOrdersBySupplier = async (req, res) => {
   }
 };
 
+// Create single order and send notification to driver
 export const createOrder = async (req, res) => {
   try {
-    const requiredFields = ['S_RegisterID', 'ProductID', 'Qty'];
+    const requiredFields = ['S_RegisterID', 'ProductID', 'Qty', 'Driver_RegisterID']; // Add Driver_RegisterID as required field if applicable
     for (const field of requiredFields) {
       if (!req.body[field]) {
         return res.status(400).json({ message: `${field} is required` });
@@ -241,12 +217,57 @@ export const createOrder = async (req, res) => {
     }
 
     await TeaPacketsFertilizersModel.create(req.body);
+
+    // Send notification to driver
+    const driverId = req.body.Driver_RegisterID;
+    const message = `New order created with product ${req.body.ProductID} (Qty: ${req.body.Qty}).`;
+    if (driverId) {
+      await sendNotificationToDriver(driverId, message);
+    }
+
     res.status(201).json({ message: 'Order created successfully' });
   } catch (error) {
     console.error('Error creating order:', error);
     res.status(500).json({ message: 'Error creating order', error: error.message });
   }
 };
+
+// Create multiple orders in bulk and send notifications to drivers
+export const createBulkOrders = async (req, res) => {
+  try {
+    const orders = req.body;
+    if (!Array.isArray(orders) || orders.length === 0) {
+      return res.status(400).json({ message: 'An array of orders is required' });
+    }
+
+    for (const orderData of orders) {
+      const requiredFields = ['S_RegisterID', 'ProductID', 'Qty', 'Driver_RegisterID'];
+      for (const field of requiredFields) {
+        if (!orderData[field]) {
+          return res.status(400).json({ message: `${field} is required in one of the orders` });
+        }
+      }
+    }
+
+    // Bulk insert
+    await TeaPacketsFertilizersModel.createBulk(orders);
+
+    // Send notifications to drivers
+    for (const orderData of orders) {
+      const driverId = orderData.Driver_RegisterID;
+      const message = `New order created with product ${orderData.ProductID} (Qty: ${orderData.Qty}).`;
+      if (driverId) {
+        await sendNotificationToDriver(driverId, message);
+      }
+    }
+
+    res.status(201).json({ message: 'Bulk orders created successfully' });
+  } catch (error) {
+    console.error('Error creating bulk orders:', error);
+    res.status(500).json({ message: 'Error creating bulk orders', error: error.message });
+  }
+};
+
 
 export const updateOrderStatus = async (req, res) => {
   try {
