@@ -1,10 +1,9 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
-import Pusher from 'pusher';
-import pool from './config/db.js';  // your database pool
+import pool from './config/db.js';
+import Pusher from 'pusher';  // Import Pusher here
 
-// Import your routes (adjust paths as needed)
 import SupplierRoute from './routes/SupplierRoute.js';
 import ProductRoute from './routes/ProductRoute.js';
 import DriverRoute from './routes/DriverRoute.js';
@@ -28,43 +27,22 @@ const pusher = new Pusher({
   useTLS: true,
 });
 
-// Middleware
+// middleware
+app.use(express.json());
 app.use(cors());
-app.use(express.json());  // Important to parse JSON bodies
 
 // Pusher authentication endpoint
 app.post('/pusher/auth', (req, res) => {
-  const { socket_id, channel_name } = req.body;
+  const socketId = req.body.socket_id;
+  const channel = req.body.channel_name;
 
-  if (!socket_id || !channel_name) {
-    return res.status(400).json({ error: 'Missing socket_id or channel_name' });
-  }
+  // TODO: Add your auth validation logic here (e.g. verify user/session/token)
 
-  // OPTIONAL Authentication Logic:
-  // Example: Validate a bearer token from request headers
-  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Unauthorized: No Authorization header' });
-  }
-
-  const token = authHeader.split(' ')[1]; // Assuming "Bearer <token>"
-
-  // Simple token check - replace with real verification logic
-  if (!token || token !== process.env.API_AUTH_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden: Invalid token' });
-  }
-
-  // If authentication passed, generate auth response
-  try {
-    const auth = pusher.authenticate(socket_id, channel_name);
-    return res.json(auth);
-  } catch (error) {
-    console.error('Pusher auth error:', error);
-    return res.status(500).json({ error: 'Authentication failed' });
-  }
+  const auth = pusher.authenticate(socketId, channel);
+  res.send(auth);
 });
 
-// Your other API endpoints
+// api endpoints
 app.use('/api/supplier', SupplierRoute);
 app.use('/api/product', ProductRoute);
 app.use('/api/driver', DriverRoute);
@@ -76,10 +54,11 @@ app.use('/api/teaPacketFertilizer', TeaPacketFertilizerRoute);
 app.use('/api/rate', rateRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Test DB connection endpoint
 app.get('/test-db', async (req, res) => {
+  console.log('Test DB endpoint hit');
   try {
     const [rows] = await pool.query('SELECT 1 + 1 AS solution');
+    console.log('Database query result:', rows);
     res.json({ success: true, message: 'Database connected!', result: rows[0] });
   } catch (error) {
     console.error('Error connecting to the database:', error);
@@ -87,12 +66,10 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// Basic root endpoint
 app.get('/', (req, res) => {
   res.send('API WORKING');
 });
 
-// Start server
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server starting on port ${port}`);
 });
