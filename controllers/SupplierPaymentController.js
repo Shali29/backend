@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import sql from 'mssql';
+import { sendNotificationToSupplier } from '../utils/notificationUtils.js';
 
 const SupplierPayment = {
   async getAll() {
@@ -204,15 +205,31 @@ export const createPayment = async (req, res) => {
 
 export const updatePayment = async (req, res) => {
   try {
-    const updated = await SupplierPayment.update(req.params.id, req.body);
-    if (!updated) {
-      return res.status(404).json({ message: 'Payment not found or update failed' });
+    const { id } = req.params;
+    const { Status } = req.body;
+
+    if (!Status) {
+      return res.status(400).json({ message: 'Status is required' });
     }
-    const payment = await SupplierPayment.getById(req.params.id);
+
+    const updated = await SupplierPayment.updateStatus(id, Status);
+
+    if (!updated) {
+      return res.status(400).json({ message: 'Failed to update payment status' });
+    }
+
+    const payment = await SupplierPayment.getById(id);
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found after update' });
+    }
+
+    const message = `Your payment with ID ${id} status has been updated to "${Status}".`;
+    await sendNotificationToSupplier(payment.S_RegisterID, message);
+
     res.status(200).json(payment);
   } catch (error) {
-    console.error('Error updating payment:', error);
-    res.status(500).json({ message: 'Error updating payment', error: error.message });
+    console.error('Error updating payment status:', error);
+    res.status(500).json({ message: 'Error updating payment status', error: error.message });
   }
 };
 
