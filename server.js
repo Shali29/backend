@@ -33,14 +33,20 @@ app.use(cors());
 
 // Pusher authentication endpoint
 app.post('/pusher/auth', (req, res) => {
-  const socketId = req.body.socket_id;
-  const channel = req.body.channel_name;
+  try {
+    const socketId = req.body.socket_id;
+    const channel = req.body.channel_name;
 
-  // TODO: Add your auth validation logic here (e.g. verify user/session/token)
+    // TODO: Add your auth validation logic here (e.g. verify user/session/token)
 
-  const auth = pusher.authenticate(socketId, channel);
-  res.send(auth);
+    const auth = pusher.authenticate(socketId, channel);
+    res.send(auth);
+  } catch (error) {
+    console.error("Pusher auth error:", error);
+    res.status(500).send({ error: 'Auth failed' });
+  }
 });
+
 
 // api endpoints
 app.use('/api/supplier', SupplierRoute);
