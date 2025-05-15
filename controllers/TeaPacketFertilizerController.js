@@ -127,31 +127,6 @@ class TeaPacketsFertilizersModel {
     return result;
   }
 }
-export const createBulkOrders = async (req, res) => {
-  const orders = req.body;
-
-  if (!Array.isArray(orders) || orders.length === 0) {
-    return res.status(400).json({ message: 'Request must contain an array of orders' });
-  }
-
-  try {
-    for (const orderData of orders) {
-      const requiredFields = ['S_RegisterID', 'ProductID', 'Qty'];
-      for (const field of requiredFields) {
-        if (!orderData[field]) {
-          return res.status(400).json({ message: `Each item must include ${field}` });
-        }
-      }
-
-      await TeaPacketsFertilizersModel.create(orderData);
-    }
-
-    res.status(201).json({ message: 'All orders created successfully' });
-  } catch (error) {
-    console.error('Error creating bulk orders:', error);
-    res.status(500).json({ message: 'Error creating bulk orders', error: error.message });
-  }
-};
 
 // --- Controller functions ---
 export const getAllOrders = async (req, res) => {
