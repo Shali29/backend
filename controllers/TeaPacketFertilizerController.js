@@ -29,6 +29,47 @@ class TeaPacketsFertilizersModel {
     return result.recordset.length ? result.recordset[0] : null;
   }
 
+  static async createBulk(orders) {
+  await db.poolConnect;
+  const transaction = new db.sql.Transaction(db.pool);
+  try {
+    await transaction.begin();
+    const request = transaction.request();
+
+    for (const orderData of orders) {
+      const status = orderData.Order_Status || 'Pending';
+      const totalItems = orderData.Total_Items || orderData.Qty;
+      const totalTea = orderData.Total_TeaPackets || 0;
+      const totalOther = orderData.Total_OtherItems || orderData.Qty;
+
+      request.input('S_RegisterID', db.sql.VarChar, orderData.S_RegisterID);
+      request.input('ProductID', db.sql.VarChar, orderData.ProductID);
+      request.input('Qty', db.sql.Int, orderData.Qty);
+      request.input('Order_Status', db.sql.VarChar, status);
+      request.input('Total_Items', db.sql.Int, totalItems);
+      request.input('Total_TeaPackets', db.sql.Int, totalTea);
+      request.input('Total_OtherItems', db.sql.Int, totalOther);
+
+      await request.query(`
+        INSERT INTO TeaPackets_Fertilizers (
+          S_RegisterID, ProductID, Qty, Request_Date, Order_Status, 
+          Total_Items, Total_TeaPackets, Total_OtherItems
+        ) VALUES (
+          @S_RegisterID, @ProductID, @Qty, GETDATE(), @Order_Status,
+          @Total_Items, @Total_TeaPackets, @Total_OtherItems
+        )
+      `);
+      request.parameters = {}; // Clear parameters for next iteration
+    }
+
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+}
+
+
   static async getBySupplierId(supplierId) {
     await db.poolConnect;
     const request = db.pool.request();
@@ -128,6 +169,7 @@ class TeaPacketsFertilizersModel {
   }
 }
 
+
 // --- Controller functions ---
 export const getAllOrders = async (req, res) => {
   try {
@@ -136,6 +178,35 @@ export const getAllOrders = async (req, res) => {
   } catch (error) {
     console.error('Error getting orders:', error);
     res.status(500).json({ message: 'Error fetching orders', error: error.message });
+  }
+};
+// Controller function to create multiple orders in bulk
+export const createBulkOrders = async (req, res) => {
+  try {
+    const orders = req.body; // expecting an array of orders
+    if (!Array.isArray(orders) || orders.length === 0) {
+      return res.status(400).json({ message: 'An array of orders is required' });
+    }
+
+    // Assuming your model has a createBulk method (you need to add this too)
+    for (const orderData of orders) {
+      const requiredFields = ['S_RegisterID', 'ProductID', 'Qty'];
+      for (const field of requiredFields) {
+        if (!orderData[field]) {
+          return res.status(400).json({ message: `${field} is required in one of the orders` });
+        }
+      }
+    }
+
+    // Bulk insert logic (could be optimized with a batch insert query)
+    for (const orderData of orders) {
+      await TeaPacketsFertilizersModel.create(orderData);
+    }
+
+    res.status(201).json({ message: 'Bulk orders created successfully' });
+  } catch (error) {
+    console.error('Error creating bulk orders:', error);
+    res.status(500).json({ message: 'Error creating bulk orders', error: error.message });
   }
 };
 
