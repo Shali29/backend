@@ -129,6 +129,17 @@ class Loan {
       throw error;
     }
   }
+static async updateStatus(id, status) {
+  try {
+    const result = await db.pool.request()
+      .input('id', sql.Int, id)
+      .input('status', sql.VarChar, status)
+      .query('UPDATE Supplier_Loan SET Status = @status WHERE LoanID = @id');
+    return result;
+  } catch (error) {
+    throw error;
+  }
+}
 
   static async delete(id) {
     try {
@@ -233,7 +244,28 @@ export const createLoan = async (req, res) => {
     res.status(500).json({ message: 'Error creating loan', error: error.message });
   }
 };
+export const updateLoanStatus = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { status } = req.body;
 
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+
+    const result = await Loan.updateStatus(id, status);
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    // Optionally, return updated loan data
+    const updatedLoan = await Loan.getById(id);
+    res.status(200).json({ message: 'Status updated successfully', loan: updatedLoan });
+  } catch (error) {
+    console.error('Error updating loan status:', error);
+    res.status(500).json({ message: 'Error updating loan status', error: error.message });
+  }
+};
 // Update a loan
 export const updateLoan = async (req, res) => {
   try {
