@@ -1,10 +1,8 @@
-import express from "express";
-import Pusher from "pusher";
-import cors from "cors";
+// server.js (or auth.js)
+import express from 'express';
+import Pusher from 'pusher';
 
 const app = express();
-
-app.use(cors());
 app.use(express.json());
 
 const pusher = new Pusher({
@@ -15,17 +13,15 @@ const pusher = new Pusher({
   useTLS: true,
 });
 
-// Pusher authentication endpoint
-app.post("/pusher/auth", (req, res) => {
+app.post('/pusher/auth', (req, res) => {
   const socketId = req.body.socket_id;
   const channel = req.body.channel_name;
 
-  // Optionally check if user is authorized to subscribe to this channel
+  // **Add your auth logic here** - e.g. validate user/token to allow subscription
+
   const auth = pusher.authenticate(socketId, channel);
   res.send(auth);
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Pusher auth server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
