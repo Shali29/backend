@@ -1,6 +1,6 @@
 import db from '../config/db.js';
 import { sendNotificationToDriver } from '../utils/notificationUtils.js';
-
+import { sendNotificationToSupplier } from '../utils/notificationUtils.js';
 
 class TeaPacketsFertilizersModel {
   static async getAll() {
