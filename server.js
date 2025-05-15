@@ -29,6 +29,7 @@ const pusher = new Pusher({
 
 // middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // Pusher authentication endpoint
@@ -36,9 +37,6 @@ app.post('/pusher/auth', (req, res) => {
   try {
     const socketId = req.body.socket_id;
     const channel = req.body.channel_name;
-
-    // TODO: Add your auth validation logic here (e.g. verify user/session/token)
-
     const auth = pusher.authenticate(socketId, channel);
     res.send(auth);
   } catch (error) {
@@ -46,6 +44,7 @@ app.post('/pusher/auth', (req, res) => {
     res.status(500).send({ error: 'Auth failed' });
   }
 });
+
 
 
 // api endpoints
