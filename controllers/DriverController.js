@@ -1,5 +1,6 @@
 import { generateOtp, sendOtpEmail } from '../utils/otpService.js'; // Correct import
 import db from '../config/db.js';
+import pusher from '../utils/pusherClient.js';
 
 // Driver Model Methods - Internal functions
 const getAll = async () => {
@@ -206,5 +207,41 @@ export const deleteDriver = async (req, res) => {
   } catch (error) {
     console.error('Error deleting driver:', error);
     res.status(500).json({ message: 'Error deleting driver', error: error.message });
+  }
+};
+export const updateDriverLocation = async (req, res) => {
+  try {
+    const { driverId, latitude, longitude } = req.body;
+    if (!driverId || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ message: "Missing required fields: driverId, latitude, longitude" });
+    }
+
+    // Update driver location in DB (you must add these columns: Latitude, Longitude, LastUpdated to Driver table)
+    await db.poolConnect;
+    const request = db.pool.request();
+    request.input('D_RegisterID', db.sql.VarChar, driverId);
+    request.input('Latitude', db.sql.Float, latitude);
+    request.input('Longitude', db.sql.Float, longitude);
+    request.input('LastUpdated', db.sql.DateTime, new Date());
+
+    await request.query(`
+      UPDATE Driver
+      SET Latitude = @Latitude,
+          Longitude = @Longitude,
+          LastUpdated = @LastUpdated
+      WHERE D_RegisterID = @D_RegisterID
+    `);
+
+    // Trigger Pusher event to notify clients of location update
+    await pusher.trigger('private-drivers', 'driver-location-update', {
+      driverId,
+      latitude,
+      longitude,
+    });
+
+    res.status(200).json({ message: 'Driver location updated and event triggered' });
+  } catch (error) {
+    console.error('Error updating driver location:', error);
+    res.status(500).json({ message: 'Error updating location', error: error.message });
   }
 };

@@ -5,31 +5,23 @@ import {
   createDriver,
   updateDriver,
   deleteDriver,
-  requestOtpLogin,  // Added this import
-  validateOtpLogin  // Added this import
+  requestOtpLogin,
+  validateOtpLogin,
+  updateDriverLocation  // import new function
 } from '../controllers/DriverController.js';
 
 const router = express.Router();
 
-// GET all drivers
 router.get('/AllDrivers', getAllDrivers);
-
-// GET driver by ID
 router.get('/DriverById/:id', getDriverById);
-
-// POST create new driver
 router.post('/create', createDriver);
-
-// PUT update driver
 router.put('/updateDriver/:id', updateDriver);
-
-// DELETE driver
 router.delete('/deleteDriver/:id', deleteDriver);
 
-// POST Request OTP for driver login
-router.post('/requestOtpLogin', requestOtpLogin);  // Add this route
+router.post('/requestOtpLogin', requestOtpLogin);
+router.post('/validateOtpLogin', validateOtpLogin);
 
-// POST Validate OTP for driver login
-router.post('/validateOtpLogin', validateOtpLogin);  // Add this route
+// New endpoint for location updates
+router.post('/update-location', updateDriverLocation);
 
 export default router;
