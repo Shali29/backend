@@ -18,7 +18,7 @@ const getAll = async () => {
   try {
     await db.poolConnect;
     const result = await db.pool.request().query(`
-      SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email, AccountNumber, BankName, Branch FROM Supplier
+      SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email, AccountNumber, BankName, Branch, Username FROM Supplier
     `);
     return result.recordset;
   } catch (error) {
@@ -34,7 +34,7 @@ const getById = async (id) => {
     request.input('id', db.sql.VarChar, id);
 
     const result = await request.query(`
-      SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email, AccountNumber, BankName, Branch 
+      SELECT S_RegisterID, S_FullName, S_Address, S_ContactNo, Email, AccountNumber, BankName, Branch, Username
       FROM Supplier 
       WHERE S_RegisterID = @id
     `);
