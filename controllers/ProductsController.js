@@ -51,16 +51,21 @@ const update = async (id, productData) => {
   return result;
 };
 
-const updateStock = async (id, quantity) => {
+// In Products Model file
+
+const updateStock = async (id, quantityChange) => {
   await db.poolConnect;
   const request = db.pool.request();
 
   request.input('id', db.sql.VarChar, id);
-  request.input('qty', db.sql.Int, quantity);
+  request.input('qtyChange', db.sql.Int, quantityChange);
 
+  // quantityChange can be positive (increase stock) or negative (decrease stock)
+  // We need to prevent stock going below zero when decreasing
   const result = await request.query(`
-    UPDATE Products SET Stock_bag = Stock_bag - @qty
-    WHERE ProductID = @id AND Stock_bag >= @qty
+    UPDATE Products
+    SET Stock_bag = Stock_bag + @qtyChange
+    WHERE ProductID = @id AND (Stock_bag + @qtyChange) >= 0
   `);
 
   if (result.rowsAffected[0] === 0) {
@@ -70,6 +75,7 @@ const updateStock = async (id, quantity) => {
   return result;
 };
 
+
 const deleteProductById = async (id) => {
   await db.poolConnect;
   const request = db.pool.request();
@@ -78,6 +84,7 @@ const deleteProductById = async (id) => {
   const result = await request.query('DELETE FROM Products WHERE ProductID = @id');
   return result;
 };
+
 
 // --- Controller Functions ---
 export const getAllProducts = async (req, res) => {
