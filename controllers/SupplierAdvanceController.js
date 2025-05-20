@@ -1,17 +1,16 @@
 import db from '../config/db.js';
 
-// Model functions
 class SupplierAdvance {
   // Fetch all supplier advances with supplier name
   static async getAll() {
     try {
-      const [results] = await db.query(`
+      const result = await db.pool.request().query(`
         SELECT sa.*, s.S_FullName 
         FROM Supplier_Advance sa
         JOIN Supplier s ON sa.S_RegisterID = s.S_RegisterID
         ORDER BY sa.Date DESC
       `);
-      return results;
+      return result.recordset;
     } catch (error) {
       throw error;
     }
@@ -20,14 +19,15 @@ class SupplierAdvance {
   // Fetch a supplier advance by its ID
   static async getById(id) {
     try {
-      const [results] = await db.query(`
-        SELECT sa.*, s.S_FullName 
-        FROM Supplier_Advance sa
-        JOIN Supplier s ON sa.S_RegisterID = s.S_RegisterID
-        WHERE sa.AdvanceID = ?
-      `, [id]);
-      
-      return results.length === 0 ? null : results[0];
+      const result = await db.pool.request()
+        .input('AdvanceID', id)
+        .query(`
+          SELECT sa.*, s.S_FullName 
+          FROM Supplier_Advance sa
+          JOIN Supplier s ON sa.S_RegisterID = s.S_RegisterID
+          WHERE sa.AdvanceID = @AdvanceID
+        `);
+      return result.recordset.length === 0 ? null : result.recordset[0];
     } catch (error) {
       throw error;
     }
@@ -36,12 +36,14 @@ class SupplierAdvance {
   // Fetch all advances for a specific supplier
   static async getBySupplierId(supplierId) {
     try {
-      const [results] = await db.query(`
-        SELECT * FROM Supplier_Advance 
-        WHERE S_RegisterID = ?
-        ORDER BY Date DESC
-      `, [supplierId]);
-      return results;
+      const result = await db.pool.request()
+        .input('S_RegisterID', supplierId)
+        .query(`
+          SELECT * FROM Supplier_Advance 
+          WHERE S_RegisterID = @S_RegisterID
+          ORDER BY Date DESC
+        `);
+      return result.recordset;
     } catch (error) {
       throw error;
     }
@@ -50,19 +52,22 @@ class SupplierAdvance {
   // Create a new supplier advance
   static async create(advanceData) {
     try {
-      const query = `
-        INSERT INTO Supplier_Advance (
-          S_RegisterID, Advance_Amount, Date, Status
-        ) VALUES (?, ?, CURDATE(), ?)
-      `;
-      
-      const [result] = await db.query(query, [
-        advanceData.S_RegisterID,
-        advanceData.Advance_Amount,
-        advanceData.Status || 'Pending'
-      ]);
+      const now = new Date();
+      const sqlDate = now.toISOString().slice(0, 19).replace('T', ' ');
 
-      return result;
+      const result = await db.pool.request()
+        .input('S_RegisterID', advanceData.S_RegisterID)
+        .input('Advance_Amount', advanceData.Advance_Amount)
+        .input('Date', sqlDate)
+        .input('Status', advanceData.Status || 'Pending')
+        .query(`
+          INSERT INTO Supplier_Advance (
+            S_RegisterID, Advance_Amount, Date, Status
+          ) VALUES (@S_RegisterID, @Advance_Amount, @Date, @Status);
+          SELECT SCOPE_IDENTITY() AS AdvanceID;
+        `);
+
+      return result.recordset[0]; // inserted record id
     } catch (error) {
       throw error;
     }
@@ -71,11 +76,11 @@ class SupplierAdvance {
   // Update the status of a supplier advance
   static async updateStatus(id, status) {
     try {
-      const [result] = await db.query(
-        'UPDATE Supplier_Advance SET Status = ? WHERE AdvanceID = ?',
-        [status, id]
-      );
-      return result;
+      const result = await db.pool.request()
+        .input('Status', status)
+        .input('AdvanceID', id)
+        .query('UPDATE Supplier_Advance SET Status = @Status WHERE AdvanceID = @AdvanceID');
+      return result.rowsAffected;
     } catch (error) {
       throw error;
     }
@@ -84,24 +89,24 @@ class SupplierAdvance {
   // Update an existing supplier advance
   static async update(id, advanceData) {
     try {
-      const query = `
-        UPDATE Supplier_Advance SET 
-          S_RegisterID = ?, 
-          Advance_Amount = ?, 
-          Date = ?, 
-          Status = ?
-        WHERE AdvanceID = ?
-      `;
-      
-      const [result] = await db.query(query, [
-        advanceData.S_RegisterID,
-        advanceData.Advance_Amount,
-        advanceData.Date || new Date().toISOString().split('T')[0],
-        advanceData.Status,
-        id
-      ]);
+      const dateToUse = advanceData.Date || new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-      return result;
+      const result = await db.pool.request()
+        .input('S_RegisterID', advanceData.S_RegisterID)
+        .input('Advance_Amount', advanceData.Advance_Amount)
+        .input('Date', dateToUse)
+        .input('Status', advanceData.Status)
+        .input('AdvanceID', id)
+        .query(`
+          UPDATE Supplier_Advance SET 
+            S_RegisterID = @S_RegisterID, 
+            Advance_Amount = @Advance_Amount, 
+            Date = @Date, 
+            Status = @Status
+          WHERE AdvanceID = @AdvanceID
+        `);
+
+      return result.rowsAffected;
     } catch (error) {
       throw error;
     }
@@ -110,28 +115,31 @@ class SupplierAdvance {
   // Delete a supplier advance by its ID
   static async delete(id) {
     try {
-      const [result] = await db.query('DELETE FROM Supplier_Advance WHERE AdvanceID = ?', [id]);
-      return result;
+      const result = await db.pool.request()
+        .input('AdvanceID', id)
+        .query('DELETE FROM Supplier_Advance WHERE AdvanceID = @AdvanceID');
+      return result.rowsAffected;
     } catch (error) {
       throw error;
     }
   }
 
-  // Get statistics (placeholder for the function mentioned in controller)
+  // Get statistics (counts and sums for pending and transferred advances)
   static async getStatistics() {
     try {
-      // Implementation depends on what statistics are needed
-      const [pendingAdvances] = await db.query(
-        'SELECT COUNT(*) as count, SUM(Advance_Amount) as total FROM Supplier_Advance WHERE Status = "Pending"'
-      );
-      
-      const [transferedAdvances] = await db.query(
-        'SELECT COUNT(*) as count, SUM(Advance_Amount) as total FROM Supplier_Advance WHERE Status = "Transfered"'
-      );
-      
+      const pendingResult = await db.pool.request().query(`
+        SELECT COUNT(*) AS count, ISNULL(SUM(Advance_Amount), 0) AS total 
+        FROM Supplier_Advance WHERE Status = 'Pending'
+      `);
+
+      const transferedResult = await db.pool.request().query(`
+        SELECT COUNT(*) AS count, ISNULL(SUM(Advance_Amount), 0) AS total 
+        FROM Supplier_Advance WHERE Status = 'Transfered'
+      `);
+
       return {
-        pending: pendingAdvances[0],
-        transfered: transferedAdvances[0]
+        pending: pendingResult.recordset[0],
+        transfered: transferedResult.recordset[0],
       };
     } catch (error) {
       throw error;
@@ -140,7 +148,7 @@ class SupplierAdvance {
 }
 
 // Controller functions
-// Get all supplier advances
+
 export const getAllAdvances = async (req, res) => {
   try {
     const advances = await SupplierAdvance.getAll();
@@ -151,11 +159,10 @@ export const getAllAdvances = async (req, res) => {
   }
 };
 
-// Get supplier advances by supplier ID
 export const getAdvancesBySupplier = async (req, res) => {
   try {
     const advances = await SupplierAdvance.getBySupplierId(req.params.supplierId);
-    if (advances.length === 0) {
+    if (!advances || advances.length === 0) {
       return res.status(404).json({ message: 'No advances found for this supplier' });
     }
     res.status(200).json(advances);
@@ -165,7 +172,6 @@ export const getAdvancesBySupplier = async (req, res) => {
   }
 };
 
-// Get a single advance by ID
 export const getAdvanceById = async (req, res) => {
   try {
     const advance = await SupplierAdvance.getById(req.params.id);
@@ -179,43 +185,27 @@ export const getAdvanceById = async (req, res) => {
   }
 };
 
-// Create a new advance
 export const createAdvance = async (req, res) => {
   try {
-    const { amount, advanceDate, notes, S_RegisterID } = req.body;
+    const { Advance_Amount, S_RegisterID, Status } = req.body;
 
-    // Validate required fields
-    if (!amount || !S_RegisterID) {
-      return res.status(400).json({ message: 'Amount and supplier ID are required' });
+    if (!Advance_Amount || !S_RegisterID) {
+      return res.status(400).json({ message: 'Advance amount and supplier ID are required' });
     }
 
-    // Handle date - either use provided date or current date
-    const dateToUse = advanceDate ? new Date(advanceDate) : new Date();
-    
-    // If you need MySQL formatted date
-    const mysqlDate = dateToUse.toISOString().slice(0, 19).replace('T', ' ');
-
-    const [result] = await db.query(
-      `INSERT INTO Supplier_Advances 
-       (S_RegisterID, Amount, AdvanceDate, Notes) 
-       VALUES (?, ?, ?, ?)`,
-      [S_RegisterID, amount, mysqlDate, notes || null]
-    );
-
-    res.status(201).json({ 
-      message: 'Advance created successfully',
-      advanceId: result.insertId
+    const result = await SupplierAdvance.create({
+      Advance_Amount,
+      S_RegisterID,
+      Status: Status || 'Pending',
     });
+
+    res.status(201).json({ message: 'Advance created successfully', advanceId: result.AdvanceID });
   } catch (error) {
     console.error('Error creating advance:', error);
-    res.status(500).json({ 
-      message: 'Error creating advance',
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Error creating advance', error: error.message });
   }
 };
 
-// Update an advance
 export const updateAdvance = async (req, res) => {
   try {
     const advance = await SupplierAdvance.getById(req.params.id);
@@ -223,15 +213,14 @@ export const updateAdvance = async (req, res) => {
       return res.status(404).json({ message: 'Advance not found' });
     }
 
-    const updatedAdvance = await SupplierAdvance.update(req.params.id, req.body);
-    res.status(200).json(updatedAdvance);
+    const updated = await SupplierAdvance.update(req.params.id, req.body);
+    res.status(200).json(updated);
   } catch (error) {
     console.error('Error updating advance:', error);
     res.status(500).json({ message: 'Error updating advance', error: error.message });
   }
 };
 
-// Delete an advance
 export const deleteAdvance = async (req, res) => {
   try {
     const advance = await SupplierAdvance.getById(req.params.id);
@@ -247,7 +236,6 @@ export const deleteAdvance = async (req, res) => {
   }
 };
 
-// Update advance status
 export const updateAdvanceStatus = async (req, res) => {
   try {
     const { Status } = req.body;
@@ -260,15 +248,14 @@ export const updateAdvanceStatus = async (req, res) => {
       return res.status(404).json({ message: 'Advance not found' });
     }
 
-    const updatedAdvance = await SupplierAdvance.updateStatus(req.params.id, Status);
-    res.status(200).json(updatedAdvance);
+    const updated = await SupplierAdvance.updateStatus(req.params.id, Status);
+    res.status(200).json(updated);
   } catch (error) {
     console.error('Error updating advance status:', error);
     res.status(500).json({ message: 'Error updating advance status', error: error.message });
   }
 };
 
-// Get advance statistics
 export const getAdvanceStatistics = async (req, res) => {
   try {
     const stats = await SupplierAdvance.getStatistics();
