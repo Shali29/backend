@@ -14,6 +14,7 @@ import SupplierPaymentRoute from './routes/SupplierPaymentRoute.js';
 import TeaPacketFertilizerRoute from './routes/TeaPacketFertilizerRoute.js';
 import rateRoutes from './routes/RateRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import SupplierAdvanceRoute from './routes/SupplierAdvanceRoute.js'; 
 
 const app = express();
 const port = process.env.PORT || 4000;
